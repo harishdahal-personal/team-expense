@@ -1,0 +1,703 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Track deposits, court hire, shuttles and equipment costs for your badminton group and see who needs to top up.">
+<meta name="theme-color" content="#0b6b57">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b6b57'/%3E%3Cpath d='M32 50 24 24h16z' fill='%23fff'/%3E%3Ccircle cx='32' cy='54' r='5' fill='%23fff'/%3E%3C/svg%3E">
+<style>
+:root { color-scheme: light; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>Sathibhai Expense Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: summary strip, top-up alerts, then balances + ledger on the left and entry forms on the right; stacks to one column on phones. */
+:root {
+  --bg: #f1f5f2;
+  --surface: #ffffff;
+  --ink: #12261f;
+  --muted: #566b62;
+  --line: #d3dfd8;
+  --accent: #0b6b57;
+  --accent-ink: #ffffff;
+  --ok: #1b7a4b;
+  --ok-bg: #dff3e7;
+  --warn: #8f5200;
+  --warn-bg: #ffeccb;
+  --bad: #b3261e;
+  --bad-bg: #fde3e0;
+  --f-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0c1915; --surface: #13241e; --ink: #e5f0ea; --muted: #90a99e; --line: #274139;
+    --accent: #43c3a2; --accent-ink: #06201a; --ok: #62d49b; --ok-bg: #12382a;
+    --warn: #f2b84b; --warn-bg: #3b2d0c; --bad: #ff8d83; --bad-bg: #3d1916; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0c1915; --surface: #13241e; --ink: #e5f0ea; --muted: #90a99e; --line: #274139;
+  --accent: #43c3a2; --accent-ink: #06201a; --ok: #62d49b; --ok-bg: #12382a;
+  --warn: #f2b84b; --warn-bg: #3b2d0c; --bad: #ff8d83; --bad-bg: #3d1916; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.45; padding-inline: 16px; padding-block: 20px 48px; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; }
+button, input, select, textarea { font: inherit; color: inherit; }
+.wrap { max-width: 1120px; margin-inline: auto; display: flex; flex-direction: column; gap: 20px; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+
+/* header */
+.top { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 8px 16px; }
+.top h1 { font-size: clamp(1.6rem, 4vw, 2.2rem); font-weight: 800; letter-spacing: -0.02em; }
+.top p { margin: 4px 0 0; color: var(--muted); }
+.live { font-family: var(--f-mono); font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.live i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); display: inline-block; }
+.live.off i { background: var(--warn); }
+
+.banner { background: var(--warn-bg); color: var(--warn); border-radius: 8px; padding: 10px 14px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; }
+.banner[hidden] { display: none; }
+
+/* summary */
+.summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.stat span { display: block; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.stat b { display: block; font-family: var(--f-mono); font-weight: 500; font-size: clamp(1.15rem, 3.4vw, 1.6rem); margin-top: 2px; overflow-wrap: anywhere; }
+
+/* generic panels */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.panel h2 { font-size: 1.05rem; font-weight: 800; margin-bottom: 4px; }
+.sub { color: var(--muted); font-size: 13px; margin: 0 0 12px; }
+
+/* alerts */
+.alerts { border-color: var(--warn); }
+.alerts.clear { border-color: var(--line); }
+.alerts-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 12px; align-items: center; margin-bottom: 8px; }
+.alert-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.alert-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+.alert-list .who { font-weight: 600; }
+.alert-list .meta { color: var(--muted); font-size: 13px; }
+.copybox { width: 100%; margin-top: 10px; min-height: 76px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+
+/* pills + buttons */
+.pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.pill.ok { background: var(--ok-bg); color: var(--ok); }
+.pill.low { background: var(--warn-bg); color: var(--warn); }
+.pill.debt { background: var(--bad-bg); color: var(--bad); }
+.btn { background: var(--accent); color: var(--accent-ink); border: 0; border-radius: 8px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
+.btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+.btn.small { padding: 4px 10px; font-size: 13px; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.danger { color: var(--bad); }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* main grid */
+.main { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+/* balances */
+.rows { list-style: none; margin: 0; padding: 0; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; padding: 10px 0; border-top: 1px solid var(--line); align-items: center; }
+.row:first-child { border-top: 0; }
+.row.inactive { opacity: 0.55; }
+.row .name { font-weight: 600; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.row .amt { font-family: var(--f-mono); font-size: 1.05rem; text-align: right; }
+.row .amt.debt { color: var(--bad); }
+.meter { grid-column: 1 / -1; height: 6px; background: var(--bg); border-radius: 4px; position: relative; overflow: hidden; }
+.meter i { display: block; height: 100%; border-radius: 4px; background: var(--ok); }
+.meter i.low { background: var(--warn); }
+.meter i.debt { background: var(--bad); }
+.meter em { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); opacity: 0.45; }
+.row .note { grid-column: 1 / -1; font-size: 12.5px; color: var(--muted); }
+
+/* ledger */
+.table-scroll { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 520px; }
+th { text-align: left; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); font-weight: 500; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+td { padding: 9px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.num, th.num { text-align: right; }
+td .small { color: var(--muted); font-size: 12.5px; display: block; }
+.plus { color: var(--ok); }
+.tag { font-size: 12px; font-weight: 600; padding: 1px 7px; border-radius: 4px; background: var(--bg); border: 1px solid var(--line); white-space: nowrap; }
+
+/* forms */
+details.panel { padding: 0; }
+details.panel > summary { cursor: pointer; padding: 14px 16px; font-family: var(--f-display); font-weight: 800; list-style-position: inside; }
+details.panel > .body { padding: 0 16px 16px; }
+form { display: flex; flex-direction: column; gap: 10px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label, .legend { font-size: 12.5px; color: var(--muted); font-weight: 500; }
+.field input, .field select, .field textarea { background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; min-width: 0; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 10px; }
+.checks label { display: flex; align-items: center; gap: 6px; font-size: 14px; color: var(--ink); }
+.err { color: var(--bad); font-size: 13px; min-height: 1em; margin: 0; }
+.split-preview { font-family: var(--f-mono); font-size: 13px; color: var(--muted); margin: 0; }
+.empty { color: var(--muted); padding: 12px 0; }
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 14px; z-index: 5; max-width: calc(100% - 32px); }
+.toast[hidden] { display: none; }
+.pl-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); }
+.pl-row:first-of-type { border-top: 0; }
+
+/* touch: 16px inputs stop iOS zooming on focus, comfortable tap targets */
+input, select, textarea { font-size: 16px; }
+.btn { min-height: 44px; }
+.btn.small { min-height: 38px; padding-inline: 12px; }
+summary { min-height: 44px; display: flex; align-items: center; }
+.checks label { min-height: 40px; }
+.checks input { width: 20px; height: 20px; flex: none; }
+.nav { display: none; }
+.welcome { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-top: 10px; }
+.backup-row { display: flex; flex-wrap: wrap; gap: 8px; }
+
+@media (max-width: 860px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  body { padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px)); }
+  .toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+  .nav {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px;
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 4;
+    background: var(--surface); border-top: 1px solid var(--line);
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+  .nav button { background: transparent; border: 0; border-radius: 8px; min-height: 44px; font-weight: 600; color: var(--muted); cursor: pointer; }
+  .nav button.primary { background: var(--accent); color: var(--accent-ink); }
+  .nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+}
+@media (max-width: 640px) {
+  .panel { padding: 14px; }
+  .alert-list li { grid-template-columns: minmax(0, 1fr); }
+  .alert-list li .btn { justify-self: start; }
+  /* ledger turns into stacked cards instead of a sideways-scrolling table */
+  table { min-width: 0; display: block; }
+  thead { display: none; }
+  tbody { display: block; }
+  tbody tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  tbody td { display: block; border: 0; padding: 0; min-width: 0; }
+  tbody td:nth-child(1) { grid-column: 1; grid-row: 1; color: var(--muted); font-size: 12.5px; }
+  tbody td:nth-child(2) { grid-column: 1; grid-row: 2; }
+  tbody td:nth-child(3) { grid-column: 1; grid-row: 3; font-size: 14px; }
+  tbody td:nth-child(4) { grid-column: 2; grid-row: 1 / span 2; text-align: right; font-size: 1.05rem; }
+  tbody td:nth-child(5) { grid-column: 2; grid-row: 3; text-align: right; }
+  tbody td[colspan] { grid-column: 1 / -1; grid-row: auto; font-size: 15px; }
+}
+@media (max-width: 480px) {
+  .summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .stat { padding: 10px; }
+  .stat span { font-size: 10.5px; letter-spacing: 0.03em; }
+  .two { grid-template-columns: minmax(0, 1fr); }
+  .checks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .meter i { transition: width 0.4s ease; }
+}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Sathibhai Expense Tracker</h1>
+      <p>Badminton fund: court hire, shuttles, rackets and who needs to top up.</p>
+    </div>
+    <span class="live off" id="live"><i></i><span id="liveText">Connecting</span></span>
+  </header>
+
+  <div class="banner" id="exBanner" hidden>
+    <span>Example players and entries are loaded so you can try the tool. Clear them before you start recording real costs.</span>
+    <button class="btn small" id="clearEx" type="button">Clear examples</button>
+  </div>
+
+  <section class="summary" aria-label="Fund summary">
+    <div class="stat"><span>Fund balance</span><b id="sPool">–</b></div>
+    <div class="stat"><span>Spent this month</span><b id="sMonth">–</b></div>
+    <div class="stat"><span>Need to top up</span><b id="sLow">–</b></div>
+  </section>
+
+  <section class="panel alerts" id="alerts" aria-live="polite"></section>
+
+  <div class="main">
+    <div class="col">
+      <section class="panel" id="secBalances">
+        <h2>Player balances</h2>
+        <p class="sub" id="balSub"></p>
+        <ul class="rows" id="balances"></ul>
+      </section>
+
+      <section class="panel" id="secLedger">
+        <h2>Ledger</h2>
+        <p class="sub">Newest first. Deposits add to a balance. Expenses are split equally between the players who took part.</p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Date</th><th>Entry</th><th>Who</th><th class="num">Amount</th><th></th></tr></thead>
+          <tbody id="ledger"></tbody>
+        </table></div>
+        <p style="margin:12px 0 0"><button class="btn ghost small" id="moreBtn" type="button" hidden>Show all entries</button></p>
+      </section>
+    </div>
+
+    <div class="col" id="forms">
+      <p class="sub" id="roNote" hidden>You can view this tracker but not change it. Ask the owner for Contributor access.</p>
+
+      <details class="panel" open>
+        <summary>Record a deposit</summary>
+        <div class="body">
+          <form id="depForm">
+            <div class="field"><label for="depPlayer">Player</label><select id="depPlayer" required></select></div>
+            <div class="two">
+              <div class="field"><label for="depAmt">Amount</label><input id="depAmt" type="number" inputmode="decimal" min="0" step="0.01" placeholder="40" required></div>
+              <div class="field"><label for="depDate">Date</label><input id="depDate" type="date" required></div>
+            </div>
+            <div class="field"><label for="depNote">Note (optional)</label><input id="depNote" type="text" maxlength="80" placeholder="Bank transfer to Aarav"></div>
+            <p class="err" id="depErr"></p>
+            <button class="btn" type="submit">Add deposit</button>
+          </form>
+        </div>
+      </details>
+
+      <details class="panel" open>
+        <summary>Record an expense</summary>
+        <div class="body">
+          <form id="expForm">
+            <div class="two">
+              <div class="field"><label for="expCat">Type</label><select id="expCat"></select></div>
+              <div class="field"><label for="expAmt">Total cost</label><input id="expAmt" type="number" inputmode="decimal" min="0" step="0.01" placeholder="42" required></div>
+            </div>
+            <div class="two">
+              <div class="field"><label for="expDate">Date</label><input id="expDate" type="date" required></div>
+              <div class="field"><label for="expPaid">Paid by</label><select id="expPaid"></select></div>
+            </div>
+            <div class="field"><label for="expNote">Note (optional)</label><input id="expNote" type="text" maxlength="80" placeholder="Tue 7pm, court 3, 2 hrs"></div>
+            <div class="field">
+              <span class="legend">Who took part</span>
+              <div class="checks" id="attendees"></div>
+              <div style="display:flex;gap:8px;margin-top:6px">
+                <button class="btn ghost small" type="button" id="allBtn">Select all</button>
+                <button class="btn ghost small" type="button" id="noneBtn">Clear</button>
+              </div>
+            </div>
+            <p class="split-preview" id="splitPreview"></p>
+            <p class="err" id="expErr"></p>
+            <button class="btn" type="submit">Add expense</button>
+          </form>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary>Players</summary>
+        <div class="body">
+          <div id="plList"></div>
+          <form id="plForm" style="margin-top:10px">
+            <div class="field"><label for="plName">New player</label>
+              <div style="display:flex;gap:8px"><input id="plName" type="text" maxlength="40" placeholder="Name" required><button class="btn" type="submit">Add</button></div>
+            </div>
+          </form>
+        </div>
+      </details>
+
+      <details class="panel">
+        <summary>Alert settings</summary>
+        <div class="body">
+          <form id="setForm">
+            <div class="two">
+              <div class="field"><label for="setCur">Currency symbol</label><input id="setCur" type="text" maxlength="4" required></div>
+              <div class="field"><label for="setThr">Alert below</label><input id="setThr" type="number" min="0" step="1" required></div>
+            </div>
+            <p class="sub" style="margin:0">A player is flagged when their balance drops below this amount. The suggested top-up covers about 4 weeks of their usual spending.</p>
+            <button class="btn" type="submit">Save settings</button>
+          </form>
+        </div>
+      </details>
+
+      <details class="panel" id="backupPanel" hidden>
+        <summary>Backup and restore</summary>
+        <div class="body">
+          <p class="sub">Your data is saved in this browser only. Download a backup to keep it safe or to move it to another phone or computer.</p>
+          <div class="backup-row">
+            <button class="btn" type="button" id="exportBtn">Download backup</button>
+            <button class="btn ghost" type="button" id="importBtn">Restore from backup</button>
+            <input type="file" id="importFile" accept="application/json,.json" hidden>
+          </div>
+          <p class="err" id="backupErr"></p>
+        </div>
+      </details>
+    </div>
+  </div>
+</div>
+<nav class="nav" aria-label="Jump to section">
+  <button type="button" data-jump="secBalances">Balances</button>
+  <button type="button" data-jump="forms" class="primary">Add entry</button>
+  <button type="button" data-jump="secLedger">Ledger</button>
+</nav>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(function () {
+  var $ = function (s) { return document.querySelector(s); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+  var CATS = { court: 'Court hire', shuttles: 'Shuttles', racket: 'Rackets & grips', repairs: 'Stringing & repairs', gear: 'Nets & gear', other: 'Other' };
+  var state = { players: [], txns: [], settings: { currency: '$', threshold: 20 }, loaded: { players: false, txns: false }, canWrite: true, showAll: false, armed: null };
+  var db = null, armTimer = null, lastSig = '', copyText = '';
+
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function isoDate(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function today() { return isoDate(new Date()); }
+  function daysBetween(a, b) { return (new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000; }
+  function fmt(n) {
+    var s = state.settings.currency || '$';
+    var v = Math.abs(n).toFixed(2);
+    return (n < 0 ? '−' : '') + s + v;
+  }
+  function uid() { return 'l' + Math.random().toString(36).slice(2, 10); }
+  function toast(msg) {
+    var t = $('#toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(function () { t.hidden = true; }, 2600);
+  }
+
+  /* ---------- data layer ---------- */
+  /* Two storage modes. Inside Claude the shared `db` is used. Everywhere else (for example GitHub Pages)
+     data lives in this browser's localStorage under STORE_KEY, with backup and restore as a safety net. */
+  var STORE_KEY = 'sathibhai-expense-tracker:v1';
+  var local = { players: [], txns: [] };
+  var storageOk = true;
+  function persist() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify({ players: local.players, txns: local.txns, settings: state.settings })); storageOk = true; }
+    catch (e) { storageOk = false; setLive(false, 'Cannot save in this browser'); }
+  }
+  function loadLocal() {
+    try {
+      var raw = localStorage.getItem(STORE_KEY);
+      if (!raw) return;
+      var o = JSON.parse(raw);
+      local.players = Array.isArray(o.players) ? o.players : [];
+      local.txns = Array.isArray(o.txns) ? o.txns : [];
+      if (o.settings) state.settings = Object.assign({ currency: '$', threshold: 20 }, o.settings);
+    } catch (e) { /* unreadable or blocked storage: start empty */ }
+    state.players = local.players.slice(); state.txns = local.txns.slice();
+  }
+  function localChanged(col) { if (col) state[col] = local[col].slice(); persist(); render(); return Promise.resolve(); }
+  function addDoc(col, data) {
+    if (db) return db.collection(col).add(data);
+    local[col].push(Object.assign({ id: uid() }, data)); return localChanged(col);
+  }
+  function delDoc(col, id) {
+    if (db) return db.doc(col + '/' + id).delete();
+    local[col] = local[col].filter(function (x) { return x.id !== id; }); return localChanged(col);
+  }
+  function patchDoc(col, id, data) {
+    if (db) return db.doc(col + '/' + id).update(data);
+    local[col] = local[col].map(function (x) { return x.id === id ? Object.assign({}, x, data) : x; }); return localChanged(col);
+  }
+  function saveSettings(s) {
+    if (db) return db.doc('settings/main').set(s);
+    state.settings = s; return localChanged();
+  }
+  function guard(p, okMsg) {
+    return p.then(function () { if (okMsg) toast(okMsg); }).catch(function (e) {
+      toast(e && e.code === 'invalid_argument' ? 'You do not have permission to change this tracker.' : 'Could not save. Check your connection and try again.');
+    });
+  }
+
+  function sampleData() {
+    var t = new Date(); function ago(n) { var d = new Date(t); d.setDate(d.getDate() - n); return isoDate(d); }
+    var names = ['Aarav', 'Bikash', 'Sita', 'Rohan', 'Maya'];
+    var players = names.map(function (n, i) { return { id: 'p' + i, name: n, active: true, example: true }; });
+    var ids = players.map(function (p) { return p.id; });
+    var txns = [
+      { id: 't1', type: 'deposit', playerId: 'p0', amount: 100, date: ago(28), note: 'Opening deposit', example: true },
+      { id: 't2', type: 'deposit', playerId: 'p1', amount: 40, date: ago(28), note: '', example: true },
+      { id: 't3', type: 'deposit', playerId: 'p2', amount: 60, date: ago(28), note: '', example: true },
+      { id: 't4', type: 'deposit', playerId: 'p3', amount: 30, date: ago(27), note: '', example: true },
+      { id: 't5', type: 'deposit', playerId: 'p4', amount: 80, date: ago(27), note: '', example: true },
+      { id: 't6', type: 'expense', category: 'court', amount: 42, date: ago(21), note: 'Tue court, 2 hrs', split: ids, paidBy: 'pool', example: true },
+      { id: 't7', type: 'expense', category: 'court', amount: 42, date: ago(14), note: 'Tue court, 2 hrs', split: ids.slice(0, 4), paidBy: 'pool', example: true },
+      { id: 't8', type: 'expense', category: 'shuttles', amount: 64, date: ago(10), note: '2 tubes', split: ids, paidBy: 'p0', example: true },
+      { id: 't9', type: 'expense', category: 'court', amount: 42, date: ago(7), note: 'Tue court, 2 hrs', split: ids, paidBy: 'pool', example: true },
+      { id: 't10', type: 'expense', category: 'court', amount: 42, date: ago(0), note: 'Tue court, 2 hrs', split: ids.slice(0, 4), paidBy: 'pool', example: true }
+    ];
+    return { players: players, txns: txns };
+  }
+
+  /* ---------- calculations ---------- */
+  function compute() {
+    var s = state.settings, thr = Number(s.threshold) || 0, now = today();
+    var m = {}; state.players.forEach(function (p) { m[p.id] = { p: p, dep: 0, paid: 0, share: 0, recent: 0 }; });
+    var pool = 0, month = 0, first = null, ym = now.slice(0, 7);
+    state.txns.forEach(function (t) {
+      var a = Number(t.amount) || 0;
+      if (t.type === 'deposit') { pool += a; if (m[t.playerId]) m[t.playerId].dep += a; return; }
+      if (!first || t.date < first) first = t.date;
+      if (t.date && t.date.slice(0, 7) === ym) month += a;
+      if (!t.paidBy || t.paidBy === 'pool') pool -= a; else if (m[t.paidBy]) m[t.paidBy].paid += a;
+      var sp = (t.split || []).filter(function (id) { return m[id]; });
+      var n = (t.split || []).length || 1;
+      sp.forEach(function (id) {
+        m[id].share += a / n;
+        if (daysBetween(t.date, now) <= 56) m[id].recent += a / n;
+      });
+    });
+    var weeks = first ? Math.min(8, Math.max(1, daysBetween(first, now) / 7)) : 1;
+    var list = state.players.map(function (p) {
+      var r = m[p.id], bal = r.dep + r.paid - r.share, weekly = r.recent / weeks;
+      var status = bal < 0 ? 'debt' : bal < thr ? 'low' : 'ok';
+      var target = Math.max(thr * 2, weekly * 4);
+      var sug = Math.max(0, Math.ceil((target - bal) / 5) * 5);
+      return { p: p, bal: bal, weekly: weekly, status: p.active === false ? 'ok' : status, flagged: p.active !== false && status !== 'ok', sug: sug };
+    });
+    list.sort(function (a, b) {
+      if ((a.p.active === false) !== (b.p.active === false)) return a.p.active === false ? 1 : -1;
+      return a.bal - b.bal;
+    });
+    return { list: list, pool: pool, month: month, thr: thr };
+  }
+  function reminder(x) {
+    return 'Hi ' + x.p.name + ', your badminton fund balance is ' + fmt(x.bal) + (x.bal < 0 ? ' (you owe the fund)' : '') +
+      '. Please top up about ' + fmt(x.sug) + ' so we can keep covering court and shuttle costs. Thanks!';
+  }
+
+  /* ---------- render ---------- */
+  function render() {
+    var c = compute();
+    var flagged = c.list.filter(function (x) { return x.flagged; });
+    var ex = state.players.some(function (p) { return p.example; }) || state.txns.some(function (t) { return t.example; });
+    $('#exBanner').hidden = !ex || !state.canWrite;
+
+    $('#sPool').textContent = fmt(c.pool);
+    $('#sMonth').textContent = fmt(c.month);
+    $('#sLow').textContent = String(flagged.length);
+
+    var al = $('#alerts');
+    if (flagged.length) {
+      al.className = 'panel alerts';
+      al.innerHTML = '<div class="alerts-head"><div><h2>Top-ups needed</h2><p class="sub" style="margin:0">' + flagged.length +
+        (flagged.length === 1 ? ' player is' : ' players are') + ' below ' + esc(fmt(c.thr)) + '. Send them a reminder.</p></div>' +
+        '<button class="btn small" type="button" data-copyall="1">Copy group message</button></div><ul class="alert-list">' +
+        flagged.map(function (x) {
+          return '<li><div><span class="who">' + esc(x.p.name) + '</span> <span class="pill ' + x.status + '">' + (x.status === 'debt' ? 'In debt' : 'Low') + '</span>' +
+            '<div class="meta"><span class="mono">' + esc(fmt(x.bal)) + '</span> left. Suggested top-up <span class="mono">' + esc(fmt(x.sug)) + '</span></div></div>' +
+            '<button class="btn ghost small" type="button" data-copy="' + esc(x.p.id) + '">Copy reminder</button></li>';
+        }).join('') + '</ul><textarea class="copybox" id="copyBox" readonly hidden aria-label="Message to copy"></textarea>';
+    } else {
+      al.className = 'panel alerts clear';
+      al.innerHTML = '<h2>Top-ups</h2><p class="sub" style="margin:0">' + (state.players.length ? 'Everyone is above ' + esc(fmt(c.thr)) + '. Nobody needs to top up right now.' : 'Add your players under Players, then record deposits and expenses. Balances and top-up alerts appear here.') + '</p>' +
+        (!state.players.length && !state.txns.length && !db && state.localReady ?'<div class="welcome"><button class="btn ghost" type="button" id="loadEx">Try it with example data</button></div>' : '');
+    }
+    $('#backupPanel').hidden = !!db;
+
+    $('#balSub').textContent = 'Lowest balance first. The tick on each bar marks the alert level.';
+    var rows = c.list.map(function (x) {
+      var max = Math.max(c.thr * 3, 1), pct = Math.max(0, Math.min(100, x.bal / max * 100)), tick = Math.min(100, c.thr / max * 100);
+      var note = x.p.active === false ? 'Inactive' : (x.weekly > 0 ? 'Spends about ' + fmt(x.weekly) + ' a week' + (x.bal > 0 ? ', about ' + (x.bal / x.weekly).toFixed(1) + ' weeks of play left' : '') : 'No recent spending');
+      return '<li class="row' + (x.p.active === false ? ' inactive' : '') + '"><div class="name">' + esc(x.p.name) +
+        (x.flagged ? ' <span class="pill ' + x.status + '">' + (x.status === 'debt' ? 'In debt' : 'Low') + '</span>' : '') +
+        '</div><div class="amt ' + (x.bal < 0 ? 'debt' : '') + '">' + esc(fmt(x.bal)) + '</div>' +
+        '<div class="meter" aria-hidden="true"><i class="' + x.status + '" style="width:' + pct + '%"></i><em style="left:' + tick + '%"></em></div>' +
+        '<div class="note">' + esc(note) + '</div></li>';
+    }).join('');
+    $('#balances').innerHTML = rows || '<li class="empty">No players yet. Add your first player under Players.</li>';
+
+    /* ledger */
+    var nameOf = {}; state.players.forEach(function (p) { nameOf[p.id] = p.name; });
+    var tx = state.txns.slice().sort(function (a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : (b.ts || 0) - (a.ts || 0); });
+    var shown = state.showAll ? tx : tx.slice(0, 15);
+    $('#ledger').innerHTML = shown.map(function (t) {
+      var who, desc, amt;
+      if (t.type === 'deposit') {
+        desc = '<span class="tag">Deposit</span>' + (t.note ? '<span class="small">' + esc(t.note) + '</span>' : '');
+        who = esc(nameOf[t.playerId] || 'Removed player'); amt = '<span class="plus mono">+' + esc(fmt(Number(t.amount))) + '</span>';
+      } else {
+        var n = (t.split || []).length;
+        desc = '<span class="tag">' + esc(CATS[t.category] || 'Expense') + '</span>' + (t.note ? '<span class="small">' + esc(t.note) + '</span>' : '');
+        who = n + (n === 1 ? ' player' : ' players') + '<span class="small">' + (t.paidBy && t.paidBy !== 'pool' ? 'Paid by ' + esc(nameOf[t.paidBy] || 'a player') : 'Paid from fund') + ' · ' + esc(fmt(Number(t.amount) / (n || 1))) + ' each</span>';
+        amt = '<span class="mono">−' + esc(fmt(Number(t.amount))) + '</span>';
+      }
+      var armed = state.armed === t.id;
+      return '<tr><td class="mono">' + esc(t.date) + '</td><td>' + desc + '</td><td>' + who + '</td><td class="num">' + amt + '</td><td class="num">' +
+        (state.canWrite ? '<button class="btn ghost small danger" type="button" data-del="' + esc(t.id) + '">' + (armed ? 'Confirm' : 'Delete') + '</button>' : '') + '</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="empty">No entries yet. Record a deposit or an expense.</td></tr>';
+    var more = $('#moreBtn'); more.hidden = tx.length <= 15; more.textContent = state.showAll ? 'Show latest 15' : 'Show all ' + tx.length + ' entries';
+
+    syncForms();
+    $('#roNote').hidden = state.canWrite;
+    Array.prototype.forEach.call($('#forms').querySelectorAll('input,select,button'), function (el) { el.disabled = !state.canWrite; });
+    $('#setCur').value === '' && ($('#setCur').value = state.settings.currency);
+    updateSplit();
+  }
+
+  function syncForms() {
+    var active = state.players.filter(function (p) { return p.active !== false; });
+    var sig = JSON.stringify(state.players.map(function (p) { return [p.id, p.name, p.active]; }));
+    if (sig !== lastSig) {
+      var checked = {}; Array.prototype.forEach.call(document.querySelectorAll('#attendees input'), function (i) { checked[i.value] = i.checked; });
+      var firstLoad = !lastSig || lastSig === '[]';
+      var dp = $('#depPlayer').value, pb = $('#expPaid').value;
+      $('#depPlayer').innerHTML = active.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('');
+      $('#expPaid').innerHTML = '<option value="pool">Fund</option>' + active.map(function (p) { return '<option value="' + esc(p.id) + '">' + esc(p.name) + '</option>'; }).join('');
+      if (dp) $('#depPlayer').value = dp; if (pb) $('#expPaid').value = pb;
+      $('#attendees').innerHTML = active.map(function (p) {
+        var on = firstLoad || checked[p.id] === undefined ? true : checked[p.id];
+        return '<label><input type="checkbox" value="' + esc(p.id) + '"' + (on ? ' checked' : '') + '> ' + esc(p.name) + '</label>';
+      }).join('');
+      $('#plList').innerHTML = state.players.map(function (p) {
+        return '<div class="pl-row"><span' + (p.active === false ? ' style="opacity:.55"' : '') + '>' + esc(p.name) + (p.active === false ? ' (inactive)' : '') + '</span>' +
+          '<button class="btn ghost small" type="button" data-toggle="' + esc(p.id) + '"' + (state.canWrite ? '' : ' disabled') + '>' + (p.active === false ? 'Make active' : 'Mark inactive') + '</button></div>';
+      }).join('') || '<p class="empty" style="margin:0">No players yet.</p>';
+      lastSig = sig;
+    }
+  }
+  function updateSplit() {
+    var n = document.querySelectorAll('#attendees input:checked').length, a = parseFloat($('#expAmt').value);
+    $('#splitPreview').textContent = n ? (a > 0 ? n + ' playing, ' + fmt(a / n) + ' each' : n + ' playing') : 'Select at least one player';
+  }
+
+  /* ---------- events ---------- */
+  function copyOut(text) {
+    copyText = text;
+    var ok = function () { toast('Copied'); };
+    var fb = function () { var b = $('#copyBox'); if (b) { b.hidden = false; b.value = text; b.focus(); b.select(); } toast('Select the text and copy it'); };
+    try { navigator.clipboard.writeText(text).then(ok, fb); } catch (e) { fb(); }
+  }
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('button'); if (!t) return;
+    if (t.dataset.jump) {
+      var el = document.getElementById(t.dataset.jump);
+      if (el) { var calm = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; el.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' }); }
+    }
+    else if (t.id === 'loadEx') {
+      var s = sampleData(); local.players = s.players; local.txns = s.txns;
+      localChanged('players'); localChanged('txns'); toast('Example data loaded');
+    }
+    else if (t.id === 'exportBtn') { exportBackup(); }
+    else if (t.id === 'importBtn') { $('#importFile').click(); }
+    else if (t.dataset.copy) { var c = compute().list.filter(function (x) { return x.p.id === t.dataset.copy; })[0]; if (c) copyOut(reminder(c)); }
+    else if (t.dataset.copyall) {
+      var fl = compute().list.filter(function (x) { return x.flagged; });
+      copyOut('Badminton fund reminder:\n' + fl.map(function (x) { return '- ' + x.p.name + ': balance ' + fmt(x.bal) + ', please top up about ' + fmt(x.sug); }).join('\n') + '\nThanks everyone!');
+    }
+    else if (t.dataset.del) {
+      var id = t.dataset.del;
+      if (state.armed === id) { state.armed = null; guard(delDoc('txns', id), 'Entry deleted'); }
+      else { state.armed = id; clearTimeout(armTimer); armTimer = setTimeout(function () { state.armed = null; render(); }, 3500); render(); }
+    }
+    else if (t.dataset.toggle) { var p = state.players.filter(function (x) { return x.id === t.dataset.toggle; })[0]; if (p) guard(patchDoc('players', p.id, { active: p.active === false })); }
+  });
+  $('#moreBtn').addEventListener('click', function () { state.showAll = !state.showAll; render(); });
+  $('#allBtn').addEventListener('click', function () { Array.prototype.forEach.call(document.querySelectorAll('#attendees input'), function (i) { i.checked = true; }); updateSplit(); });
+  $('#noneBtn').addEventListener('click', function () { Array.prototype.forEach.call(document.querySelectorAll('#attendees input'), function (i) { i.checked = false; }); updateSplit(); });
+  $('#attendees').addEventListener('change', updateSplit);
+  $('#expAmt').addEventListener('input', updateSplit);
+
+  $('#depForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var a = parseFloat($('#depAmt').value), pid = $('#depPlayer').value;
+    if (!pid) { $('#depErr').textContent = 'Add a player first.'; return; }
+    if (!(a > 0)) { $('#depErr').textContent = 'Enter an amount above zero.'; return; }
+    $('#depErr').textContent = '';
+    guard(addDoc('txns', { type: 'deposit', playerId: pid, amount: Math.round(a * 100) / 100, date: $('#depDate').value || today(), note: $('#depNote').value.trim(), ts: Date.now() }), 'Deposit added')
+      .then(function () { $('#depAmt').value = ''; $('#depNote').value = ''; });
+  });
+  $('#expForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var a = parseFloat($('#expAmt').value);
+    var split = Array.prototype.map.call(document.querySelectorAll('#attendees input:checked'), function (i) { return i.value; });
+    if (!(a > 0)) { $('#expErr').textContent = 'Enter a cost above zero.'; return; }
+    if (!split.length) { $('#expErr').textContent = 'Select at least one player to share the cost.'; return; }
+    $('#expErr').textContent = '';
+    guard(addDoc('txns', { type: 'expense', category: $('#expCat').value, amount: Math.round(a * 100) / 100, date: $('#expDate').value || today(), note: $('#expNote').value.trim(), split: split, paidBy: $('#expPaid').value, ts: Date.now() }), 'Expense added')
+      .then(function () { $('#expAmt').value = ''; $('#expNote').value = ''; updateSplit(); });
+  });
+  $('#plForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var n = $('#plName').value.trim(); if (!n) return;
+    guard(addDoc('players', { name: n, active: true }), 'Player added').then(function () { $('#plName').value = ''; });
+  });
+  $('#setForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var thr = parseFloat($('#setThr').value);
+    if (!(thr >= 0)) { return; }
+    guard(saveSettings({ currency: $('#setCur').value.trim() || '$', threshold: thr }), 'Settings saved');
+  });
+  $('#clearEx').addEventListener('click', function () {
+    var jobs = [];
+    state.txns.filter(function (t) { return t.example; }).forEach(function (t) { jobs.push(delDoc('txns', t.id)); });
+    state.players.filter(function (p) { return p.example; }).forEach(function (p) { jobs.push(delDoc('players', p.id)); });
+    guard(Promise.all(jobs), 'Examples cleared');
+  });
+
+  /* ---------- start ---------- */
+  $('#depDate').value = today(); $('#expDate').value = today();
+  $('#expCat').innerHTML = Object.keys(CATS).map(function (k) { return '<option value="' + k + '">' + CATS[k] + '</option>'; }).join('');
+  $('#setCur').value = state.settings.currency; $('#setThr').value = state.settings.threshold;
+  render();
+
+  function setLive(on, text) { $('#live').className = 'live' + (on ? '' : ' off'); $('#liveText').textContent = text; }
+  function useLocal() {
+    loadLocal(); state.localReady = true;
+    $('#setCur').value = state.settings.currency; $('#setThr').value = state.settings.threshold;
+    setLive(true, 'Saved on this device'); render();
+  }
+  function exportBackup() {
+    try {
+      var blob = new Blob([JSON.stringify({ app: 'sathibhai-expense-tracker', version: 1, exportedAt: new Date().toISOString(), players: local.players, txns: local.txns, settings: state.settings }, null, 2)], { type: 'application/json' });
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'sathibhai-backup-' + today() + '.json';
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      toast('Backup downloaded');
+    } catch (e) { $('#backupErr').textContent = 'Could not create the backup file in this browser.'; }
+  }
+  $('#importFile').addEventListener('change', function () {
+    var f = this.files && this.files[0], input = this; if (!f) return;
+    var r = new FileReader();
+    r.onload = function () {
+      try {
+        var o = JSON.parse(r.result);
+        if (!o || !Array.isArray(o.players) || !Array.isArray(o.txns)) throw new Error('shape');
+        local.players = o.players; local.txns = o.txns;
+        if (o.settings) state.settings = Object.assign({ currency: '$', threshold: 20 }, o.settings);
+        $('#setCur').value = state.settings.currency; $('#setThr').value = state.settings.threshold;
+        $('#backupErr').textContent = ''; localChanged('players'); localChanged('txns'); toast('Backup restored');
+      } catch (e) { $('#backupErr').textContent = 'That file is not a valid backup from this tracker.'; }
+      input.value = '';
+    };
+    r.onerror = function () { $('#backupErr').textContent = 'Could not read that file.'; };
+    r.readAsText(f);
+  });
+  (async function () {
+    try {
+      if (window.claude && window.claude.use) {
+        db = await window.claude.use('db');
+        var user = await window.claude.use('user');
+        if (user && user.can) { var w = await Promise.resolve(user.can('data.write')); if (w === false) state.canWrite = false; }
+      }
+    } catch (e) { db = null; }
+    if (!db) { useLocal(); return; }
+    var onErr = function () { setLive(false, 'Connection lost'); };
+    db.collection('players').onSnapshot(function (s) {
+      state.players = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }).sort(function (a, b) { return String(a.name).localeCompare(String(b.name)); });
+      setLive(true, 'Shared, updates live'); render();
+    }, onErr);
+    db.collection('txns').onSnapshot(function (s) {
+      state.txns = s.docs.map(function (d) { return Object.assign({ id: d.id }, d.data()); }); render();
+    }, onErr);
+    db.doc('settings/main').onSnapshot(function (s) {
+      if (s.exists) {
+        state.settings = Object.assign({ currency: '$', threshold: 20 }, s.data());
+        if (document.activeElement !== $('#setCur')) $('#setCur').value = state.settings.currency;
+        if (document.activeElement !== $('#setThr')) $('#setThr').value = state.settings.threshold;
+      }
+      render();
+    }, onErr);
+  })();
+})();
+</script>
+
+</body>
+</html>
